@@ -19,25 +19,25 @@
       let
         pkgs = import nixpkgs { inherit system; };
 
-        # Use fenix's "complete" toolchain for the desired channel
+        # Full Rust toolchain from fenix
         rustToolchain = fenix.packages.${system}.complete.toolchain;
       in
       {
         devShells.default = pkgs.mkShell {
           packages = [
             rustToolchain
+
+            # ESP tools from nixpkgs
             pkgs.espflash
             pkgs.ldproxy
+            pkgs.esp-generate
+            pkgs.espup
+            # not available installed via cargo install globally for now
+            # pkgs.esp-config
           ];
 
-          # Set the ESP32-S3 target as default
           CARGO_BUILD_TARGET = "xtensa-esp32s3-none-elf";
           RUST_BACKTRACE = 1;
-
-          shellHook = ''
-            echo "ESP32-S3 dev shell (fenix complete)"
-            echo "  target: $CARGO_BUILD_TARGET"
-          '';
         };
       }
     );

@@ -5,8 +5,8 @@
   "pin_mapping": {
     "VCC": "3.3V",
     "GND": "GND",
-    "SCA_SCL": "GPIO 12",
-    "SDA_IO0": "GPIO 11",
+    "SCL": "GPIO 12",
+    "SDA": "GPIO 11",
     "IO1": "GPIO 13",
     "IO2": "GPIO 14",
     "IO3": "GPIO 9",
@@ -16,8 +16,8 @@
     "TE": "GPIO 16"
   },
   "notes": {
-    "psram_safety": "Pins 35-37 are avoided to prevent conflict with Octal PSRAM (N16R8).",
-    "backlight": "GPIO 17 must be set HIGH to enable the display.",
-    "spi_mode": "Must use Half-Duplex Quad Mode in esp-hal."
+    "psram_safety": "Pins 33-37 are avoided to prevent conflict with Octal PSRAM (N16R8). GPIO 34 is physically missing on this board revision.",
+    "spi_peripheral": "Uses SPI2 (FSPI) for optimal hardware routing.",
+    "logic_level": "3.3V"
   }
 }

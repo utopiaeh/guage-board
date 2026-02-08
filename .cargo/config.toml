@@ -1,16 +1,8 @@
-[target.xtensa-esp32s3-none-elf]
-runner = "espflash flash --monitor --chip esp32s3 --log-format defmt"
-
-[env]
-DEFMT_LOG="info"
-
 [build]
-rustflags = [
-  "-C", "link-arg=-nostartfiles",
-]
-
 target = "xtensa-esp32s3-none-elf"
+
+[target.xtensa-esp32s3-none-elf]
+runner = "espflash flash --monitor"
 
 [unstable]
 build-std = ["core"]
-# build-std-features = ["panic_immediate_abort"]

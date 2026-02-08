@@ -1,0 +1,23 @@
+{
+  "device": "ST77916 Display",
+  "controller": "ESP32-S3 N16R8",
+  "interface": "QSPI (Quad SPI)",
+  "pin_mapping": {
+    "VCC": "3.3V",
+    "GND": "GND",
+    "SCA_SCL": "GPIO 12",
+    "SDA_IO0": "GPIO 11",
+    "IO1": "GPIO 13",
+    "IO2": "GPIO 14",
+    "IO3": "GPIO 9",
+    "CS": "GPIO 10",
+    "RST": "GPIO 18",
+    "BL": "GPIO 17",
+    "TE": "GPIO 16"
+  },
+  "notes": {
+    "psram_safety": "Pins 35-37 are avoided to prevent conflict with Octal PSRAM (N16R8).",
+    "backlight": "GPIO 17 must be set HIGH to enable the display.",
+    "spi_mode": "Must use Half-Duplex Quad Mode in esp-hal."
+  }
+}

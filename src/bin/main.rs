@@ -1,43 +1,45 @@
 #![no_std]
 #![no_main]
-#![deny(
-    clippy::mem_forget,
-    reason = "mem::forget is generally not safe to do with esp_hal types, especially those \
-    holding buffers for the duration of a data transfer."
-)]
-#![deny(clippy::large_stack_frames)]
-
-use esp_hal::{
-    clock::CpuClock,
-    main,
-    time::{Duration, Instant},
-};
 
 use defmt::info;
+use esp_backtrace as _;
+use esp_hal::{
+    clock::CpuClock,
+    delay::Delay,
+    gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull},
+    main,
+    spi::{
+        Mode,
+        master::{Address, Command, Config, DataMode, Spi},
+    },
+    time::Rate,
+};
 use esp_println as _;
 
-use esp_backtrace as _;
-
-// This creates a default app-descriptor required by the esp-idf bootloader.
-// For more information see: <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/app_image_format.html#application-description>
+// CRITICAL: This is required for the ESP32-S3 bootloader to recognize the app
 esp_bootloader_esp_idf::esp_app_desc!();
 
-#[allow(
-    clippy::large_stack_frames,
-    reason = "it's not unusual to allocate larger buffers etc. in main"
-)]
 #[main]
 fn main() -> ! {
-    // generator version: 1.2.0
-
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
-    let _peripherals = esp_hal::init(config);
+    let peripherals = esp_hal::init(config);
+    let delay = Delay::new();
+
+    info!("Starting ST77916 QSPI Driver...");
+
+    // 1. Setup Control Pins
+    let mut rst = Output::new(peripherals.GPIO18, Level::High, OutputConfig::default());
+    let mut _bl = Output::new(peripherals.GPIO17, Level::High, OutputConfig::default());
 
     loop {
-        info!("Hello world!");
-        let delay_start = Instant::now();
-        while delay_start.elapsed() < Duration::from_millis(500) {}
-    }
+        info!("Checking for life on TE pin (GPIO 16)...");
+        // Toggle Reset (GPIO 18)
+        rst.set_high();
+        _bl.set_low();
+        delay.delay_millis(2000);
 
-    // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.0.0/examples
+        rst.set_low();
+        _bl.set_high();
+        delay.delay_millis(2000);
+    }
 }

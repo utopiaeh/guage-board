@@ -24,9 +24,9 @@ fn main() -> ! {
     let peripherals = esp_hal::init(config);
     let delay = Delay::new();
 
-    info!("Starting ST77916 on JSON Pinout (GPIO 9-14)...");
+    info!("Starting ST77916 Safe-Mode Driver (Mode 2, 2MHz)...");
 
-    // 1. Setup Control Pins (Reset 18, Backlight 17, CS 10)
+    // 1. Control Pins
     let mut rst = Output::new(peripherals.GPIO18, Level::High, OutputConfig::default());
     let _bl = Output::new(peripherals.GPIO17, Level::High, OutputConfig::default());
     let mut cs = Output::new(peripherals.GPIO10, Level::High, OutputConfig::default());
@@ -36,71 +36,104 @@ fn main() -> ! {
         InputConfig::default().with_pull(Pull::None),
     );
 
-    // 2. Hardware Reset Sequence (ST77916 is very sensitive to this)
+    // 2. Hardware Reset (Crucial for clearing previous failed states)
     rst.set_high();
     delay.delay_millis(50);
     rst.set_low();
-    delay.delay_millis(150); // Hold reset
+    delay.delay_millis(150);
     rst.set_high();
-    delay.delay_millis(200); // Wait for boot
+    delay.delay_millis(250);
 
-    // 3. SPI Configuration (Slowed to 1MHz for absolute stability)
+    // 3. SPI Configuration (Mode 2 + 2MHz for command reliability)
     let spi_config = Config::default()
         .with_frequency(Rate::from_mhz(10))
         .with_mode(Mode::_2);
 
     let mut spi = Spi::new(peripherals.SPI2, spi_config)
         .expect("Failed to init SPI")
-        .with_sck(peripherals.GPIO12) // SCL
-        .with_mosi(peripherals.GPIO11) // SDA (IO0)
-        .with_miso(peripherals.GPIO13) // IO1
-        .with_sio2(peripherals.GPIO14) // IO2
-        .with_sio3(peripherals.GPIO9); // IO3
+        .with_sck(peripherals.GPIO12)
+        .with_mosi(peripherals.GPIO11)
+        .with_miso(peripherals.GPIO13)
+        .with_sio2(peripherals.GPIO14)
+        .with_sio3(peripherals.GPIO9);
 
-    // 4. Helper for Manual CS writes
-    let mut send_cmd = |cmd: u8, data: &[u8]| {
-        cs.set_low();
-        delay.delay_micros(10);
+    // 4. Macro for Commands (Standard 8-bit Phase)
+    macro_rules! send_cmd {
+        ($cmd:expr, $data:expr) => {
+            cs.set_low();
+            let _ = spi.half_duplex_write(
+                DataMode::Single,
+                Command::_8Bit($cmd as u16, DataMode::Single),
+                Address::_32Bit(($cmd as u32) << 24, DataMode::Single),
+                0,
+                $data,
+            );
+            cs.set_high();
+            delay.delay_millis(5);
+        };
+    }
 
-        let _ = spi.half_duplex_write(
-            DataMode::Single,
-            Command::None,
-            // We send the command as a 32-bit Address.
-            // Some displays expect the command in the first byte, some in the last.
-            // This version puts it in the first byte.
-            Address::_32Bit((cmd as u32) << 24, DataMode::Single),
-            0,
-            data,
-        );
-
-        delay.delay_micros(10);
-        cs.set_high();
-        delay.delay_millis(5);
-    };
-
-    // 5. Wake and Unlock
-    info!("Sending Wake (0x11)...");
-    send_cmd(0x11, &[]);
+    // 5. Wake & Advanced Calibration Sequence
+    info!("Waking and Calibrating ST77916...");
+    send_cmd!(0x11, &[]); // Sleep Out
     delay.delay_millis(150);
 
-    send_cmd(0x3A, &[0x55]); // Set 16-bit RGB565
-    send_cmd(0x35, &[0x00]); // Force TE ON
-    info!("Unlocking Manufacturer Registers...");
-    send_cmd(0xF0, &[0xC3]);
-    send_cmd(0xF0, &[0x96]);
+    // UNLOCK Command List 2
+    send_cmd!(0xF0, &[0xC3]);
+    send_cmd!(0xF0, &[0x96]);
 
-    // Mandatory settings to start the internal clock
-    send_cmd(0x35, &[0x00]); // TE ON (This makes GPIO 16 move!)
-    send_cmd(0x3A, &[0x55]); // 16-bit
-    send_cmd(0x21, &[]); // Inversion
-    send_cmd(0x29, &[]); // Display ON
+    // --- CALIBRATION DATA (The "Magic" to stop the lines) ---
+    send_cmd!(0xC0, &[0x80, 0x20]); // Power Control 1
+    send_cmd!(0xC1, &[0x02]); // Power Control 2 (Pump Frequency)
+    send_cmd!(0xE2, &[0x03, 0x00, 0x00, 0x03]); // Source Timing
+    send_cmd!(0xE5, &[0x01]); // Gate Timing
+    send_cmd!(0x3B, &[0x03, 0x03, 0x03, 0x03]); // Frame Rate (60Hz)
 
-    info!("Entering Monitor Loop...");
+    // Interface Setup
+    send_cmd!(0x3A, &[0x55]); // 16-bit RGB565
+    send_cmd!(0x36, &[0x00]); // MADCTL (Direction)
+
+    // Brightness (Ensures pixels have enough 'punch')
+    send_cmd!(0x51, &[0xFF]);
+    send_cmd!(0x53, &[0x24]);
+
+    send_cmd!(0x21, &[]); // Inversion ON
+    send_cmd!(0x29, &[]); // Display ON
+    delay.delay_millis(50);
+
+    // Attempt standard Power-up
+    send_cmd!(0x21, &[]); // Inversion ON
+    send_cmd!(0x29, &[]); // Display ON
+    delay.delay_millis(100);
+
+    // 6. Fill Screen with RED (Quad Mode)
+    info!("Filling Screen with RED using Quad Data...");
+    send_cmd!(0x2A, &[0x00, 0x00, 0x01, 0x67]);
+    send_cmd!(0x2B, &[0x00, 0x00, 0x01, 0x67]);
+    send_cmd!(0x2C, &[]); // Start RAM Write
+
+    let red_pixel = [0xF8u8, 0x00u8];
+    let line_buffer = [red_pixel; 360];
+    let raw_line: &[u8] =
+        unsafe { core::slice::from_raw_parts(line_buffer.as_ptr() as *const u8, 720) };
+
+    for _ in 0..360 {
+        cs.set_low();
+        // CRITICAL CHANGE: Use DataMode::Quad for the pixel payload
+        let _ = spi.half_duplex_write(
+            DataMode::Quad, // Switch to 4-lane data here
+            Command::None,
+            Address::None,
+            0,
+            raw_line,
+        );
+        cs.set_high();
+    }
+
+    info!("Monitoring TE Pin Activity...");
     loop {
-        // LIFE CHECK on GPIO 16
         let mut toggles = 0;
         let mut last_state = te_pin.is_high();
-
         for _ in 0..100 {
             let current_state = te_pin.is_high();
             if current_state != last_state {
@@ -111,15 +144,12 @@ fn main() -> ! {
         }
 
         if toggles > 0 {
-            info!("SUCCESS: TE Pin is toggling! Display is communicating.");
+            info!("SUCCESS: TE Active ({} toggles).", toggles);
         } else {
-            info!("FAILURE: TE pin (GPIO 16) is static. Display is not awake.");
+            info!("TE STATIC: Trying Wake again...");
+            send_cmd!(0x11, &[]);
+            delay.delay_millis(200);
+            send_cmd!(0x35, &[0x00]);
         }
-
-        // Toggle Display for visibility
-        send_cmd(0x28, &[]); // OFF
-        delay.delay_millis(500);
-        send_cmd(0x29, &[]); // ON
-        delay.delay_millis(500);
     }
 }

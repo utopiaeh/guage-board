@@ -6,3 +6,6 @@ runner = "espflash flash --monitor"
 
 [unstable]
 build-std = ["core"]
+
+[alias]
+flash-monitor = "espflash flash --release --chip esp32s3 --port /dev/tty.usbmodem2101 --monitor"

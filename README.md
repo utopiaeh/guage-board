@@ -1,10 +1,11 @@
-# ESP32‑S3 Rust Development (Nix + direnv + espup)
+# ESP32‑S3 Rust Development (Nix + direnv + espup + Just)
 
 This project is set up to build and flash Rust firmware to an **ESP32‑S3** using:
 
 - **Nix + direnv** for a reproducible dev shell
 - **rustup + espup** for the Xtensa Rust toolchain (`esp`)
 - **espflash** for flashing and serial monitor
+- **Just** for simplifying common commands
 
 ---
 
@@ -31,23 +32,20 @@ Minimal global requirements (already configured):
 
 ---
 
-## 1. One‑time project setup
+## 2. One-time project setup
 
-From the project root:
-
-```sh
-echo 'use flake' > .envrc
-direnv allow
-```
-
-Then, inside the dev shell (direnv loads it automatically when you `cd` here):
+From the project root, run:
 
 ```sh
-espup install          # install ESP Xtensa toolchain (creates ~/export-esp.sh)
-rustup override set esp
+just setup
 ```
 
-You can verify:
+This command will:
+- Create a `.envrc` file and allow direnv.
+- Install the ESP Xtensa toolchain using `espup`.
+- Set the `esp` toolchain as the default for this project using `rustup`.
+
+You can verify the setup:
 
 ```sh
 which rustc
@@ -55,17 +53,15 @@ rustc -V
 rustup show active-toolchain
 ```
 
-You should see:
-
-- `which rustc` → `~/.rustup/toolchains/esp/bin/rustc`
-- `rustc -V` → Xtensa Rust
-- `active-toolchain` → `esp (directory override ...)`
+You should see output indicating the `esp` toolchain is active.
 
 ---
 
-## 2. Project‑local Cargo configuration
+---
 
-Create `.cargo/config.toml` in the project root:
+## 3. Project‑local Cargo configuration
+
+A `.cargo/config.toml` file is provided in the project root to configure Cargo for the ESP32-S3 target and set `espflash` as the runner.
 
 ```toml
 [build]
@@ -78,14 +74,7 @@ runner = "espflash flash --monitor"
 build-std = ["core"]
 ```
 
-What this does:
-
-- Sets **ESP32‑S3** (`xtensa-esp32s3-none-elf`) as the default target.
-- Uses `espflash flash --monitor` when you run `cargo run`.
-- Tells `cargo` / `rustc` to build `core` for this no_std target.
-
-Notes:
-
+**Notes:**
 - Do **not** add manual `rustflags` like `-C target-cpu=esp32s3`.
 - Let the ESP `esp` toolchain + target spec handle CPU settings.
 
@@ -105,57 +94,65 @@ The `flake.nix` dev shell:
 
 ---
 
-## 4. Daily workflow (build, flash, monitor)
+## 4. Daily workflow
 
-From a terminal:
+After completing the one-time setup, you can use the following `just` commands for your daily workflow:
 
-```sh
-cd /Users/utopiaeh/Developer/mcu/guage-board   # direnv loads dev shell + esp toolchain
-cargo build --release                          # build for xtensa-esp32s3-none-elf
-DEFMT_LOG=info cargo espflash flash --release \
- --chip esp32s3 \
- --port /dev/tty.usbmodem2101 \
- --monitor
-```
+- **Build:**
+  ```sh
+  just build-release
+  ```
+  This builds the project in release mode for the `xtensa-esp32s3-none-elf` target.
 
-Notes:
+- **Flash and Monitor:**
+  ```sh
+  just flash
+  ```
+  or
+  ```sh
+  just flash-monitor
+  ```
+  This command builds the project, flashes it to your ESP32-S3, and opens the serial monitor.
+  **Important:** Ensure the `PORT` environment variable is set correctly, or update the `justfile` with your specific serial port (e.g., `/dev/tty.usbmodem2101`). You can list available ports with `just list-ports`.
 
-- Use the port reported by `espflash list-ports` (on your machine: `/dev/tty.usbmodem2101`).
-- If connection fails, put the board into bootloader mode:
-  - Hold **BOOT**, tap **EN/RESET**, release BOOT after ~1s.
-  - Then rerun the `cargo espflash` command.
-- In the monitor:
-  - `CTRL+R` resets the chip.
-  - `CTRL+C` exits the monitor.
+- **List available serial ports:**
+  ```sh
+  just list-ports
+  ```
+
+- **Clean build artifacts:**
+  ```sh
+  just clean
+  ```
+
+---
 
 ## 5. Why it works
 
-- Before: Nix’s generic `rustc` was used → no Xtensa target or `core` for `xtensa-esp32s3-none-elf`.
-- Now:
-  - `espup` installed the `esp` Xtensa toolchain and `export-esp.sh`.
-  - The dev shell sources `export-esp.sh` and puts `esp`’s `bin` first in `PATH`.
-  - `rustup override set esp` selects the `esp` toolchain in this directory.
-  - `.cargo/config.toml` targets `xtensa-esp32s3-none-elf` and uses `espflash` as runner.
+- **Nix + direnv:** Provide a consistent and reproducible development environment, ensuring all necessary tools and dependencies are available.
+- **espup + rustup:** Install and manage the specific Xtensa Rust toolchain required for ESP32-S3 development.
+- **`.cargo/config.toml`:** Configures `cargo` to use the correct target and runner for the ESP32-S3.
+- **Justfile:** Simplifies common development tasks into easy-to-remember commands, reducing the cognitive load and potential for errors.
 
-Result: `cargo build --release` builds for ESP32‑S3, and `cargo espflash ... --monitor` flashes and shows runtime logs.
+---
 
 ---
 
 ## 6. TL;DR
 
-One-time in this project:
-
+**One-time setup:**
 ```sh
 cd /Users/utopiaeh/Developer/mcu/guage-board
-direnv allow
-espup install
-rustup override set esp
+just setup
 ```
 
-Day to day:
-
+**Day-to-day commands:**
 ```sh
 cd /Users/utopiaeh/Developer/mcu/guage-board
-cargo build --release
-cargo espflash flash --release --chip esp32s3 --port /dev/tty.usbmodem2101 --monitor
+
+# Build
+just build-release
+
+# Flash and monitor (ensure port is correct in Justfile or set as env var)
+just flash
 ```

@@ -1,7 +1,9 @@
 {
   "device": "ST77916 Display",
+  "device_driver": "IC-ST77916",
+  "device_ver": "TFT 1.5.3 1.0",
+  "device_resolution": "360x360",
   "controller": "ESP32-S3 N16R8",
-  "interface": "QSPI (Quad SPI)",
   "pin_mapping": {
     "VCC": "3.3V",
     "GND": "GND",

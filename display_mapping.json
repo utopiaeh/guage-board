@@ -16,10 +16,5 @@
     "RST": "GPIO 18",
     "BL": "GPIO 17",
     "TE": "GPIO 16"
-  },
-  "notes": {
-    "psram_safety": "Pins 33-37 are avoided to prevent conflict with Octal PSRAM (N16R8). GPIO 34 is physically missing on this board revision.",
-    "spi_peripheral": "Uses SPI2 (FSPI) for optimal hardware routing.",
-    "logic_level": "3.3V"
   }
 }

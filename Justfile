@@ -17,7 +17,7 @@ build-release:
 # Flash and monitor the ESP32-S3 board
 
 # The port /dev/tty.usbmodem2101 is specific to your machine.
-flash-monitor:
+flash:
     @echo "Flashing and monitoring ESP32-S3 (port: /dev/tty.usbmodem2101)..."
     DEFMT_LOG=info cargo espflash flash --release \
      --chip esp32s3 \
@@ -28,13 +28,3 @@ flash-monitor:
 list-ports:
     @echo "Listing available ESP ports..."
     cargo espflash list-ports
-
-# Clean the target directory
-clean:
-    @echo "Cleaning target directory..."
-    cargo clean
-
-# Run `rust-analyzer`
-rust-analyzer:
-    @echo "Running rust-analyzer..."
-    rust-analyzer

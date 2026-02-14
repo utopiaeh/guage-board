@@ -14,7 +14,7 @@ target/
 
 # Editor configuration
 .vscode/
-.zed/
+#.zed/
 .helix/
 .nvim.lua
 
@@ -35,3 +35,4 @@ target/
 # Ignore .DS_Store file in mac
 **/.DS_Store
 .direnv
+.idea

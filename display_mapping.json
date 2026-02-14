@@ -1,7 +1,9 @@
 {
   "device": "ST77916 Display",
+  "device_driver": "IC-ST77916",
+  "device_ver": "TFT 1.5.3 1.0",
+  "device_resolution": "360x360",
   "controller": "ESP32-S3 N16R8",
-  "interface": "QSPI (Quad SPI)",
   "pin_mapping": {
     "VCC": "3.3V",
     "GND": "GND",
@@ -14,10 +16,5 @@
     "RST": "GPIO 18",
     "BL": "GPIO 17",
     "TE": "GPIO 16"
-  },
-  "notes": {
-    "psram_safety": "Pins 33-37 are avoided to prevent conflict with Octal PSRAM (N16R8). GPIO 34 is physically missing on this board revision.",
-    "spi_peripheral": "Uses SPI2 (FSPI) for optimal hardware routing.",
-    "logic_level": "3.3V"
   }
 }

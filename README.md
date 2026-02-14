@@ -89,8 +89,9 @@ The `flake.nix` dev shell:
   - `CARGO_BUILD_TARGET=xtensa-esp32s3-none-elf`
   - `RUST_BACKTRACE=1`
 - In `shellHook`:
-  - Sources `~/export-esp.sh` (espup environment).
-  - Puts `esp` toolchain `bin` first in `PATH` so Xtensa `rustc` is used.
+  - Inlines the ESP toolchain environment so you do not need a separate `~/export-esp.sh`. The hook will prepend your Xtensa `rustc` bin into `PATH` and set `LIBCLANG_PATH` to the esp-clang library directory (if those paths exist).
+  - If `rustup` knows the `esp` toolchain, the dev shell will also prefer the `esp` toolchain's `rustc` bin when available.
+  - Prints helpful informational messages (for example whether `espup` is available and what toolchain paths were used) and provides guidance to run `espup install` inside the dev shell if the toolchain is not yet present.
 
 ---
 
